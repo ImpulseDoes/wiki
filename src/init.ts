@@ -39,7 +39,11 @@ export async function checkForUpdates(): Promise<string | null> {
 
   return new Promise((resolve) => {
 
-    https.get(info.git, (res) => {
+    const options = {
+      headers: { 'User-Agent': 'Wiki-CLI' }
+    }
+    
+    https.get(info.git, options, (res) => {
 
       let data = ''
       

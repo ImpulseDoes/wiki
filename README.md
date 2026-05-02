@@ -2,12 +2,16 @@
 
 A high-performance, professional Wikipedia reader for the terminal. Inspired by the Fabric design philosophy, it provides a distraction-free, interactive environment for exploring knowledge.
 
+![Main Interface](./public/splash.png)
+
 ## Features
 
 - **Interactive REPL**: A persistent shell environment.
 - **Advanced Reader**: Non-blocking article reader with smooth navigation.
 - **Smart Search**: Find specific text within articles using the built-in search feature (`f`).
 - **High Performance**: Powered by SQLite for instant caching and tokenized article access.
+
+![Article Reader](./public/article.png)
 
 ## Usage
 

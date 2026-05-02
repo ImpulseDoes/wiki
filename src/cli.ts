@@ -14,6 +14,7 @@ initializeStorage()
 
 const verInfo = getVersionInfo()
 let updateMessage = ''
+checkForUpdates().then(v => { if (v) updateMessage = v }).catch(() => {})
 
 const program = new Command()
 const jsonFormatter = new JsonFormatter()
@@ -26,7 +27,8 @@ const messages = [
   "WIKIpedia",
   "Explorer Spotted!",
   "Certified Info Spotter",
-  "Deep Dive or Quick Check?"
+  "Deep Dive or Quick Check?",
+  "Checkout Wikipedia!"
 ]
 
 const customMessage = messages[Math.floor(Math.random() * messages.length)]
@@ -343,12 +345,6 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
 
 const startInteractive = async () => {
   process.on('SIGINT', () => doExit())
-
-  checkForUpdates().then(remoteVersion => {
-    if (remoteVersion) {
-      updateMessage = remoteVersion
-    }
-  }).catch(() => {})
 
   showSplash()
 
