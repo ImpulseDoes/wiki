@@ -4,6 +4,15 @@ A high-performance, professional Wikipedia reader for the terminal. Inspired by 
 
 ![Main Interface](./public/splash.png)
 
+## Installation
+
+To use this CLI globally, run:
+
+```bash
+npm install -g @impulsedev/wiki
+```
+
+
 ## Features
 
 - **Interactive REPL**: A persistent shell environment.

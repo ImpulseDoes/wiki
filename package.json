@@ -1,10 +1,24 @@
 {
-  "name": "wiki",
+  "name": "@impulsedev/wiki",
   "version": "0.1.3",
   "description": "Personal Wikipedia CLI ",
   "main": "dist/cli.js",
+  "preferGlobal": true,
   "bin": {
     "wiki": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "update",
+    "public",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ImpulseDoes/wiki.git"
   },
   "scripts": {
     "build": "tsc",
