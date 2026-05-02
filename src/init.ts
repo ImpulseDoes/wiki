@@ -71,15 +71,21 @@ export interface VerInfo {
   version: string;
   git: string;
   localVersion: string;
+  locale: string;
 }
 
 export function getVersionInfo(): VerInfo {
 
   if (!fs.existsSync(VER_PATH)) {
-    return { version: 'v0.0.0', git: '', localVersion: 'v0.0.0' }
+    return { version: 'v0.1.6', git: 'https://raw.githubusercontent.com/ImpulseDoes/wiki/main/update/ver.json', localVersion: '', locale: 'en' }
   }
   
-  return JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
+  const info = JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
+
+  return {
+    ...info,
+    locale: info.locale || 'en'
+  }
 }
 
 export async function checkForUpdates(): Promise<string | null> {

@@ -38,7 +38,7 @@ program
   .name('wiki')
   .description('Beautiful Wikipedia CLI')
   .version('1.0.0')
-  .option('-l, --lang <lang>', 'Language (default: en)', 'en')
+  .option('-l, --lang <lang>', 'Language (default: en)', getVersionInfo().locale)
 
 const showSplash = () => {
   console.clear()
@@ -509,8 +509,9 @@ const startInteractive = async () => {
 
     try {
 
+      const locale = getVersionInfo().locale
       const localMatches = cacheManager.search(query)
-      const api = new WikiAPI('en')
+      const api = new WikiAPI(locale)
       const remoteMatches = await api.search(query)
       
       spinner.stop()
@@ -720,7 +721,8 @@ const openArticle = async (title: string, isLocal: boolean) => {
 
       spinner.text = '   Downloading...'
 
-      const api = new WikiAPI('en')
+      const locale = getVersionInfo().locale
+      const api = new WikiAPI(locale)
       const article = await api.getArticle(title)
 
       if (!article) {
