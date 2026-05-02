@@ -1,6 +1,6 @@
 {
   "name": "@impulsedev/wiki",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Personal Wikipedia CLI ",
   "main": "dist/cli.js",
   "preferGlobal": true,
@@ -39,6 +39,11 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/marked": "^5.0.2",
     "@types/node": "^25.6.0",
+    "@types/jsdom": "^28.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
     "better-sqlite3": "^12.9.0",
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
@@ -46,11 +51,6 @@
     "node-html-markdown": "^2.0.0",
     "ora": "^5.4.1",
     "terminal-link": "^2.1.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "@types/jsdom": "^28.0.1",
     "jsdom": "^29.1.1"
   }
 }
