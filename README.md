@@ -37,3 +37,6 @@ All local data (databases and cache) are stored in the `./storage` directory to 
 
 ## License
 MIT
+
+
+*Screenshots were taken in CachyOS, using ghostty and fish shell with tide theme!*
