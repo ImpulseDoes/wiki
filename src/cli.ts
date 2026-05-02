@@ -10,7 +10,6 @@ import { JsonFormatter } from './jsonFormatter'
 import { JsonWikiIndexer } from './jsonIndexer'
 import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo, VerInfo, saveVersionInfo } from './init'
 import { formatBytes } from './utils'
-import { version } from 'process'
 
 initializeStorage()
 
