@@ -8,6 +8,7 @@ export interface JsonArticle {
 export class JsonFormatter {
   
   extractTextTokens(html: string): Record<string, string> {
+
     const dom = new JSDOM(html)
     const document = dom.window.document
 
@@ -36,6 +37,7 @@ export class JsonFormatter {
     let stopProcessing = false
 
     elements.forEach(el => {
+
       if (stopProcessing) return
 
       let text = el.textContent || ''
@@ -51,12 +53,17 @@ export class JsonFormatter {
       const isHeading = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(el.tagName)
       
       if (isHeading) {
+
         const lowerText = text.toLowerCase()
+        
         if (stopHeadings.includes(lowerText)) {
           stopProcessing = true
+          
           return
         }
+        
         if (skipHeadings.includes(lowerText)) {
+          
           return
         }
       }
@@ -70,9 +77,12 @@ export class JsonFormatter {
     combinedText = combinedText.trim()
     
     if (combinedText) {
+
       const MAX_LENGTH = 85
       let start = 0
+      
       while (start < combinedText.length) {
+        
         if (combinedText.length - start <= MAX_LENGTH) {
           textBlocks.push(combinedText.substring(start))
           break
@@ -82,9 +92,11 @@ export class JsonFormatter {
         const lastSpace = combinedText.lastIndexOf(' ', end)
 
         if (lastSpace > start) {
+          
           textBlocks.push(combinedText.substring(start, lastSpace).trim())
           start = lastSpace + 1
         } else {
+          
           textBlocks.push(combinedText.substring(start, end).trim())
           start = end
         }

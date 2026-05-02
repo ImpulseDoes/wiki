@@ -27,7 +27,9 @@ export class WikiIndexer {
   }
 
   async indexArticle(title: string, api: WikiAPI) {
+
     const article = await api.getArticle(title)
+    
     if (!article) return
     this.saveArticle(article.title, article.content)
   }
@@ -42,6 +44,7 @@ export class WikiIndexer {
 
   getCachedArticle(title: string) {
     const stmt = this.db.prepare('SELECT * FROM articles WHERE title = ?')
+    
     return stmt.get(title)
   }
 
@@ -51,11 +54,14 @@ export class WikiIndexer {
   }
 
   async importTitles(lang: string = 'en') {
+
     const url = `https://dumps.wikimedia.org/${lang}wiki/latest/${lang}wiki-latest-all-titles-in-ns0.gz`
     const spinner = ora(`Downloading titles dump from ${url}...`).start()
 
     try {
+
       const response = await fetch(url)
+      
       if (!response.body) throw new Error('Failed to get response body')
 
       const gunzip = zlib.createGunzip()
@@ -64,6 +70,7 @@ export class WikiIndexer {
       
       let count = 0
       const insert = this.db.prepare('INSERT OR IGNORE INTO articles (title) VALUES (?)')
+      
       const transaction = this.db.transaction((titles: string[]) => {
         for (const title of titles) {
           insert.run(title.replace(/_/g, ' '))
@@ -74,13 +81,16 @@ export class WikiIndexer {
       let batch: string[] = []
 
       nodeStream.pipe(gunzip).on('data', (chunk: Buffer) => {
+        
         buffer += chunk.toString()
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
         for (const line of lines) {
+
           if (line.trim()) {
             batch.push(line.trim())
+            
             if (batch.length >= 1000) {
               transaction(batch)
               count += batch.length

@@ -8,7 +8,8 @@ import { WikiAPI } from './api'
 import { WikiIndexer } from './indexer'
 import { JsonFormatter } from './jsonFormatter'
 import { JsonWikiIndexer } from './jsonIndexer'
-import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates } from './init'
+import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo } from './init'
+import { formatBytes } from './utils'
 
 initializeStorage()
 
@@ -51,10 +52,10 @@ const showSplash = () => {
   `
 
   console.log(logo)
-  const versionDisplay = updateMessage 
-    ? `${chalk.dim(version)} ${chalk.white('→')} ${chalk.yellow(updateMessage)}` 
+  const versionDisplay = updateMessage
+    ? `${chalk.dim(version)} ${chalk.white('→')} ${chalk.yellow(updateMessage)}`
     : chalk.dim(version)
-  
+
   console.log(chalk.white(`   Wiki CLI ${versionDisplay}  •  ${customMessage}`))
   console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────'))
   console.log('\n')
@@ -140,6 +141,84 @@ const prompt = (question: string): Promise<string> => {
   })
 }
 
+const showTopStats = () => {
+
+  const config = getSettings()
+  const stats = config.settings.discStats
+  
+  const dbSize     = fs.existsSync(DB_PATH)     ? fs.statSync(DB_PATH).size     : 0
+  const jsonDbSize = fs.existsSync(JSON_DB_PATH) ? fs.statSync(JSON_DB_PATH).size : 0
+  const cacheSize  = fs.existsSync(CACHE_PATH)   ? fs.statSync(CACHE_PATH).size   : 0
+  const total      = dbSize + jsonDbSize + cacheSize
+
+  let limitBytes = 0
+  let limitLabel = ''
+
+  if (stats.getDrive) {
+    const disk = getDiskInfo()
+    limitBytes = disk.total
+    limitLabel = 'Disk'
+  } else if (stats.maxStorageVolumeTakenGB > 0) {
+    limitBytes = stats.maxStorageVolumeTakenGB * 1024 * 1024 * 1024
+    limitLabel = 'Limit'
+  }
+
+  const BAR_WIDTH = 12
+
+  const makeBar = (bytes: number, color: (s: string) => string): string => {
+
+    const pct = limitBytes > 0 ? (bytes / limitBytes) : 0
+    const filled = Math.round(pct * BAR_WIDTH)
+
+    return color('█'.repeat(filled)) + chalk.dim('░'.repeat(BAR_WIDTH - filled))
+  }
+
+  const makePct = (bytes: number): string => {
+    const ofTotal = total > 0 ? (bytes / total) * 100 : 0
+    const ofLimit = limitBytes > 0 ? (bytes / limitBytes) * 100 : 0
+    
+    return `${chalk.white(ofTotal.toFixed(1).padStart(5) + '%')} ${chalk.dim('/')} ${chalk.yellow(ofLimit.toFixed(3) + '%')}`
+  }
+
+  const fmtSize = (bytes: number): string => formatBytes(bytes).padStart(9)
+  const SEP = chalk.dim('   ' + '─'.repeat(73))
+
+  console.log()
+  console.log(`   ${chalk.bold.white('Storage Status')} ${chalk.dim(`(Comparison: ${limitLabel})`)}`)
+  console.log(SEP)
+  console.log()
+
+  console.log(
+    `   ${chalk.cyan('⊞')} ${chalk.cyan('Main DB')}      ` +
+    `${chalk.white(fmtSize(dbSize))}  ` +
+    `${makeBar(dbSize, chalk.cyan)}  ` +
+    `${makePct(dbSize)}`
+  )
+
+  console.log(
+    `   ${chalk.blue('⊕')} ${chalk.blue('JSON DB')}      ` +
+    `${chalk.white(fmtSize(jsonDbSize))}  ` +
+    `${makeBar(jsonDbSize, chalk.blue)}  ` +
+    `${makePct(jsonDbSize)}`
+  )
+
+  console.log(
+    `   ${chalk.yellow('⌘')} ${chalk.yellow('Cache')}        ` +
+    `${chalk.white(fmtSize(cacheSize))}  ` +
+    `${makeBar(cacheSize, chalk.yellow)}  ` +
+    `${makePct(cacheSize)}`
+  )
+
+  console.log()
+  console.log(
+    `   ${chalk.white('⍟')} ${chalk.bold.white('Total Usage')}  ` +
+    `${chalk.bold.green(fmtSize(total))}  ` +
+    `${makeBar(total, chalk.green)}  ` +
+    `${makePct(total)}`
+  )
+  console.log()
+}
+
 const pauseThenSplash = async (ms = 1800) => {
   await new Promise((r) => setTimeout(r, ms))
   showSplash()
@@ -153,7 +232,6 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
 
   let startIndex = 0
   const pageSize = 12
-
 
   let findMode      = false
   let findInput     = ''
@@ -248,9 +326,9 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
       const mouse = str.match(/^\x1b\[<(\d+);\d+;\d+M$/)
 
       if (mouse) {
-        
+
         const btn = parseInt(mouse[1])
-        
+
         if (btn === 64) {
           startIndex = Math.max(0, startIndex - 3)
           render()
@@ -265,6 +343,7 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
       if (findMode) {
 
         if (hex === '0d' || hex === '0a') {
+
           findMode   = false
           searchTerm = findInput
           findInput  = ''
@@ -344,6 +423,7 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
 }
 
 const startInteractive = async () => {
+
   process.on('SIGINT', () => doExit())
 
   showSplash()
@@ -362,6 +442,11 @@ const startInteractive = async () => {
 
     if (['exit', 'quit', 'e', '.exit'].includes(query.toLowerCase())) {
       doExit()
+    }
+
+    if (query === '.top') {
+      showTopStats()
+      continue
     }
 
     const spinner = ora({ text: `   Looking for "${query}"...`, color: 'cyan' }).start()

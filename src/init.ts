@@ -1,18 +1,69 @@
 import fs from 'fs'
 import path from 'path'
 import https from 'https'
+import { execSync } from 'child_process'
 
 export const STORAGE_DIR = path.join(process.cwd(), 'storage')
-
+export const SETTINGS_DIR = path.join(process.cwd(), 'settings')
 export const DB_PATH = path.join(STORAGE_DIR, 'wiki.db')
 export const JSON_DB_PATH = path.join(STORAGE_DIR, 'jsonwiki.db')
 export const CACHE_PATH = path.join(STORAGE_DIR, 'cache.json')
 export const VER_PATH = path.join(process.cwd(), 'update', 'ver.json')
+export const SETTINGS_PATH = path.join(SETTINGS_DIR, 'set.json')
 
 export function initializeStorage() {
   
   if (!fs.existsSync(STORAGE_DIR)) {
     fs.mkdirSync(STORAGE_DIR, { recursive: true })
+  }
+
+  if (!fs.existsSync(SETTINGS_DIR)) {
+    fs.mkdirSync(SETTINGS_DIR, { recursive: true })
+  }
+
+  if (!fs.existsSync(SETTINGS_PATH)) {
+    const defaultSettings = {
+      settings: {
+        discStats: {
+          getDrive: true,
+          maxStorageVolumeTakenGB: 0
+        }
+      }
+    }
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings, null, 4))
+  }
+}
+
+export interface Settings {
+  settings: {
+    discStats: {
+      getDrive: boolean;
+      maxStorageVolumeTakenGB: number;
+    }
+  }
+}
+
+export function getSettings(): Settings {
+  if (!fs.existsSync(SETTINGS_PATH)) {
+    initializeStorage()
+  }
+  return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+}
+
+export function getDiskInfo(): { total: number; free: number } {
+
+  try {
+    
+    const output = execSync('df -B1 .').toString().split('\n')[1]
+    const parts = output.split(/\s+/)
+    
+    return {
+      total: parseInt(parts[1]),
+      free: parseInt(parts[3])
+    }
+  } catch (e) {
+    
+    return { total: 0, free: 0 }
   }
 }
 

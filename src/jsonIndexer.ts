@@ -32,8 +32,10 @@ export class JsonWikiIndexer {
   }
 
   getArticleJson(title: string): Record<string, string> | null {
+    
     const stmt = this.db.prepare('SELECT data_json FROM articles_json WHERE title = ?')
     const row: any = stmt.get(title)
+   
     return row ? JSON.parse(row.data_json) : null
   }
 }

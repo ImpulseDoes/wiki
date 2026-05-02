@@ -71,6 +71,7 @@ export class WikiFormatter {
   }
 
   formatSearchResult(results: any[]): string {
+    
     if (results.length === 0) return chalk.red('No results found.')
 
     return results.map((r, i) => {
