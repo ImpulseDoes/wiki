@@ -8,7 +8,7 @@
   ▀███▀   ██      ██  ██  ██   ██  ██
 ```
 
-**Wikipedia reader for the terminal**  
+**Personal Wikipedia CLI**  
 Distraction-free, fast, and open source.
 
 [![npm](https://img.shields.io/npm/v/@impulsedev/wiki?color=cyan&label=npm&style=flat-square)](https://www.npmjs.com/package/@impulsedev/wiki)
