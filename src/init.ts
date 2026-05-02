@@ -81,11 +81,15 @@ export function getVersionInfo(): VerInfo {
   }
   
   const info = JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
-
+  
   return {
     ...info,
     locale: info.locale || 'en'
   }
+}
+
+export function saveVersionInfo(info: VerInfo) {
+  fs.writeFileSync(VER_PATH, JSON.stringify(info, null, 4))
 }
 
 export async function checkForUpdates(): Promise<string | null> {

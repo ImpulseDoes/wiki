@@ -8,8 +8,9 @@ import { WikiAPI } from './api'
 import { WikiIndexer } from './indexer'
 import { JsonFormatter } from './jsonFormatter'
 import { JsonWikiIndexer } from './jsonIndexer'
-import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo } from './init'
+import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo, VerInfo, saveVersionInfo } from './init'
 import { formatBytes } from './utils'
+import { version } from 'process'
 
 initializeStorage()
 
@@ -505,6 +506,16 @@ const startInteractive = async () => {
       continue
     }
 
+    if (query === '.config') {
+
+      await handleConfig()
+      
+      console.clear()
+      showSplash()
+      
+      continue
+    }
+
     const spinner = ora({ text: `   Searching for "${query}"...`, color: 'cyan' }).start()
 
     try {
@@ -558,6 +569,151 @@ const startInteractive = async () => {
       await pauseThenSplash()
     }
   }
+}
+
+const handleConfig = async () => {
+
+  let info = getVersionInfo()
+  const keys: (keyof VerInfo)[] = ['version', 'git', 'localVersion', 'locale']
+  let cursor = 0
+  let isEditing = false
+  let editValue = ''
+
+  return new Promise<void>((resolve) => {
+
+    process.stdin.setRawMode(true)
+    process.stdin.resume()
+
+    const render = () => {
+
+      process.stdout.write('\x1b[H\x1b[2J')
+      console.log('\n')
+      console.log(`   ${chalk.bold.white('Configuration')} (${chalk.dim(getVersionInfo().version)})`)
+      console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────\n'))
+
+      keys.forEach((key, i) => {
+
+        const isSelected = i === cursor
+        const isLocked = ['version', 'git', 'localVersion'].includes(key as string)
+        const icon = isLocked ? '🔒︎  ' : '  '
+        const prefix = isSelected ? chalk.cyan('  ▸ ') : '    '
+        const label = isSelected ? chalk.bold.cyan(key) : chalk.white(key)
+        
+        let valueDisplay = ''
+        if (isSelected && isEditing) {
+          valueDisplay = chalk.yellow(editValue) + chalk.cyan('█')
+        } else {
+          valueDisplay = chalk.dim((info as any)[key])
+        }
+        
+        console.log(`${prefix}${icon}${label}: ${valueDisplay}`)
+
+      })
+
+      console.log('\n')
+      const isBack = cursor === keys.length
+      const backPrefix = isBack ? chalk.cyan('  ▸ ') : '    '
+      console.log(`${backPrefix}${isBack ? chalk.bold.cyan('BACK') : chalk.white('BACK')}`)
+
+      console.log()
+      console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────\n'))
+      
+      if (isEditing) {
+        console.log(`   ${chalk.dim('Editing...')} ${chalk.cyan('Enter')} ${chalk.dim('to save,')} ${chalk.cyan('Esc')} ${chalk.dim('to cancel')}`)
+      } else {
+        console.log(`   ${chalk.dim('Use')} ${chalk.cyan('↑/↓')} ${chalk.dim('to navigate,')} ${chalk.cyan('Enter')} ${chalk.dim('to edit')}`)
+      }
+
+    }
+
+    render()
+
+    const onData = (data: Buffer) => {
+
+      const hex = data.toString('hex')
+      const str = data.toString()
+
+      if (isEditing) {
+
+        if (hex === '0d') {
+
+          (info as any)[keys[cursor]] = editValue.trim() || (info as any)[keys[cursor]]
+          saveVersionInfo(info)
+          isEditing = false
+          render()
+
+        } else if (hex === '1b') {
+
+          isEditing = false
+          render()
+
+        } else if (hex === '7f' || hex === '08') {
+
+          editValue = editValue.slice(0, -1)
+          render()
+
+        } else if (str.length === 1 && /[a-zA-Z0-9_\-\.]/.test(str)) {
+
+          editValue += str
+          render()
+
+        }
+
+        return
+
+      }
+
+      if (hex === '1b5b41') {
+
+        cursor = (cursor - 1 + keys.length + 1) % (keys.length + 1)
+        render()
+
+      } else if (hex === '1b5b42') {
+
+        cursor = (cursor + 1) % (keys.length + 1)
+        render()
+
+      } else if (hex === '0d') {
+
+        if (cursor === keys.length) {
+
+          process.stdin.removeListener('data', onData)
+          process.stdin.setRawMode(false)
+          process.stdin.pause()
+          resolve()
+
+        } else {
+
+          const key = keys[cursor]
+          const isLocked = ['version', 'git', 'localVersion'].includes(key as string)
+          
+          if (isLocked) {
+
+            console.log(`\n   ${chalk.yellow('🔒︎  This field is read-only.')}`)
+            setTimeout(render, 1000)
+
+          } else {
+
+            isEditing = true
+            editValue = (info as any)[key]
+            render()
+
+          }
+        }
+
+      } else if (hex === '1b' || hex === '03') {
+
+        process.stdin.removeListener('data', onData)
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        resolve()
+
+      }
+    }
+
+    process.stdin.on('data', onData)
+
+  })
 }
 
 const handleSelection = async (query: string, results: { title: string, isLocal: boolean, snippet?: string }[]): Promise<{ title: string, isLocal: boolean } | null> => {
