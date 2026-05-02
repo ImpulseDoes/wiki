@@ -8,9 +8,12 @@ import { WikiAPI } from './api'
 import { WikiIndexer } from './indexer'
 import { JsonFormatter } from './jsonFormatter'
 import { JsonWikiIndexer } from './jsonIndexer'
-import { CACHE_PATH, initializeStorage } from './init'
+import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates } from './init'
 
 initializeStorage()
+
+const verInfo = getVersionInfo()
+let updateMessage = ''
 
 const program = new Command()
 const jsonFormatter = new JsonFormatter()
@@ -35,11 +38,8 @@ program
   .option('-l, --lang <lang>', 'Language (default: en)', 'en')
 
 const showSplash = () => {
-
   console.clear()
-
-  const version = 'v0.1.3'
-
+  const version = verInfo.localVersion
   const logo = `
           ${chalk.white('▄███▄')}        ${chalk.bold.white('██      ██  ██  ██   ██  ██')}
          ${chalk.white('██ █ ██')}       ${chalk.bold.white('██      ██  ██  ██  ██   ██')}
@@ -49,7 +49,11 @@ const showSplash = () => {
   `
 
   console.log(logo)
-  console.log(chalk.white(`   Wiki CLI ${chalk.dim(version)}  •  ${customMessage}`))
+  const versionDisplay = updateMessage 
+    ? `${chalk.dim(version)} ${chalk.white('→')} ${chalk.yellow(updateMessage)}` 
+    : chalk.dim(version)
+  
+  console.log(chalk.white(`   Wiki CLI ${versionDisplay}  •  ${customMessage}`))
   console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────'))
   console.log('\n')
 
@@ -338,8 +342,13 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
 }
 
 const startInteractive = async () => {
-
   process.on('SIGINT', () => doExit())
+
+  checkForUpdates().then(remoteVersion => {
+    if (remoteVersion) {
+      updateMessage = remoteVersion
+    }
+  }).catch(() => {})
 
   showSplash()
 
@@ -359,7 +368,7 @@ const startInteractive = async () => {
       doExit()
     }
 
-    const spinner = ora({ text: `Looking for "${query}"...`, color: 'cyan' }).start()
+    const spinner = ora({ text: `   Looking for "${query}"...`, color: 'cyan' }).start()
 
     try {
       let tokens: Record<string, string> | null = cacheManager.has(query)
@@ -369,12 +378,12 @@ const startInteractive = async () => {
 
       if (!tokens) {
 
-        spinner.text = 'Downloading...'
+        spinner.text = '   Downloading...'
         const api = new WikiAPI('en')
         const article = await api.getArticle(query)
 
         if (!article) {
-          spinner.fail(`Article "${query}" not found.`)
+          spinner.fail(`   Article "${query}" not found.`)
           await pauseThenSplash()
           continue
         }
@@ -403,7 +412,7 @@ const startInteractive = async () => {
       showSplash()
 
     } catch (err: any) {
-      spinner.fail(`Error: ${err.message}`)
+      spinner.fail(`   Error: ${err.message}`)
       await pauseThenSplash()
     }
   }
