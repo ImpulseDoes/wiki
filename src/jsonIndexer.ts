@@ -38,4 +38,8 @@ export class JsonWikiIndexer {
    
     return row ? JSON.parse(row.data_json) : null
   }
+  
+  clearAll() {
+    this.db.exec("DELETE FROM articles_json")
+  }
 }

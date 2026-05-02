@@ -97,6 +97,18 @@ class CacheManager {
     this.data.add(title)
     fs.writeFileSync(this.path, JSON.stringify([...this.data], null, 2))
   }
+
+  search(query: string): string[] {
+
+    const q = query.toLowerCase()
+    
+    return [...this.data].filter(t => t.toLowerCase().includes(q))
+  }
+
+  clear() {
+    this.data.clear()
+    fs.writeFileSync(this.path, JSON.stringify([], null, 2))
+  }
 }
 
 const cacheManager = new CacheManager()
@@ -449,53 +461,288 @@ const startInteractive = async () => {
       continue
     }
 
-    const spinner = ora({ text: `   Looking for "${query}"...`, color: 'cyan' }).start()
+    if (['.clear', '.c'].includes(query.toLowerCase())) {
 
-    try {
-      let tokens: Record<string, string> | null = cacheManager.has(query)
-        ? jsonIndexer.getArticleJson(query)
-        : null
-      let finalTitle = query
+      console.clear()
+      showSplash()
+      continue
+    }
 
-      if (!tokens) {
+    if (query === '.cache') {
 
-        spinner.text = '   Downloading...'
-        const api = new WikiAPI('en')
-        const article = await api.getArticle(query)
+      const dbSize     = fs.existsSync(DB_PATH)     ? fs.statSync(DB_PATH).size     : 0
+      const jsonDbSize = fs.existsSync(JSON_DB_PATH) ? fs.statSync(JSON_DB_PATH).size : 0
+      const cacheSize  = fs.existsSync(CACHE_PATH)   ? fs.statSync(CACHE_PATH).size   : 0
+      const totalMB    = ((dbSize + jsonDbSize + cacheSize) / (1024 * 1024)).toFixed(2)
 
-        if (!article) {
-          spinner.fail(`   Article "${query}" not found.`)
-          await pauseThenSplash()
-          continue
+      const confirmed = await handleConfirmation(`Are you sure you want to delete ${totalMB} MB data from cache?`)
+      
+      if (confirmed) {
+
+        const spinner = ora({ text: '   Clearing cache...', color: 'red' }).start()
+        
+        try {
+
+          indexer.clearAll()
+          jsonIndexer.clearAll()
+          cacheManager.clear()
+          spinner.succeed('   Cache cleared successfully!')
+
+        } catch (e: any) {
+          
+          spinner.fail(`   Failed to clear cache: ${e.message}`)
         }
 
-        finalTitle = article.title
-        indexer.saveArticle(article.title, article.content)
-        tokens = jsonFormatter.extractTextTokens(article.content)
-        jsonIndexer.saveArticleJson(article.title, tokens)
-        indexer.deleteArticle(article.title)
-        cacheManager.add(article.title)
-        spinner.stop()
+        await pauseThenSplash()
 
       } else {
-        spinner.stop()
+
+        console.clear()
+        showSplash()
+
       }
 
-      if (!tokens || Object.keys(tokens).length === 0) {
-        console.log(chalk.red('   No content found.'))
+      continue
+    }
+
+    const spinner = ora({ text: `   Searching for "${query}"...`, color: 'cyan' }).start()
+
+    try {
+
+      const localMatches = cacheManager.search(query)
+      const api = new WikiAPI('en')
+      const remoteMatches = await api.search(query)
+      
+      spinner.stop()
+
+      const results: { title: string, isLocal: boolean, snippet?: string }[] = []
+      
+      localMatches.forEach(t => results.push({ title: t, isLocal: true }))
+      
+      remoteMatches.forEach(r => {
+
+        if (!localMatches.some(l => l.toLowerCase() === r.title.toLowerCase())) {
+          results.push({ title: r.title, isLocal: false, snippet: r.snippet })
+        }
+      })
+
+      if (results.length === 0) {
+
+        console.log(`   ${chalk.red('✖')} No results found for "${query}"`)
+        
         await pauseThenSplash()
         continue
+
       }
 
-      await handleReader(finalTitle, tokens)
+      if (results.length === 1) {
+
+        await openArticle(results[0].title, results[0].isLocal)
+
+      } else {
+
+        const selected = await handleSelection(query, results.slice(0, 8))
+
+        if (selected) {
+          await openArticle(selected.title, selected.isLocal)
+        }
+      }
 
       console.clear()
       showSplash()
 
     } catch (err: any) {
       spinner.fail(`   Error: ${err.message}`)
+
       await pauseThenSplash()
     }
+  }
+}
+
+const handleSelection = async (query: string, results: { title: string, isLocal: boolean, snippet?: string }[]): Promise<{ title: string, isLocal: boolean } | null> => {
+  
+  let cursor = 0
+  
+  return new Promise((resolve) => {
+
+    process.stdin.setRawMode(true)
+    process.stdin.resume()
+
+    const render = () => {
+      
+      process.stdout.write('\x1b[H\x1b[2J')
+
+      console.log()
+      console.log(`   ${chalk.bold.white('Results for')} ${chalk.cyan(`"${query}"`)}:\n`)
+      console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────'))
+      
+      results.forEach((res, i) => {
+
+        const isSelected = i === cursor
+        const prefix = isSelected ? chalk.cyan('  ▸ ') : '    '
+        const title = isSelected ? chalk.bold.cyan(res.title) : chalk.white(res.title)
+        const type = res.isLocal ? chalk.green('[Local]') : chalk.dim('[Wiki]')
+        
+        console.log(` ${prefix}${title} ${type}`)
+
+        if (isSelected && res.snippet) {
+          console.log(`      ${chalk.italic.dim(res.snippet)}`)
+        } else if (!isSelected && res.snippet) {
+          console.log(`      ${chalk.dim(res.snippet.substring(0, 80) + '...')}`)
+        }
+      })
+      
+      console.log()
+      console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────\n'))
+      console.log(`   ${chalk.dim('Use')} ${chalk.cyan('↑/↓')} ${chalk.dim('to navigate,')} ${chalk.cyan('Enter')} ${chalk.dim('to select,')} ${chalk.cyan('e')} ${chalk.dim('to cancel')}`)
+    }
+
+    render()
+
+    const onData = (data: Buffer) => {
+
+      const str = data.toString()
+      const hex = data.toString('hex')
+
+      if (hex === '1b5b41') {
+
+        cursor = (cursor - 1 + results.length) % results.length
+        
+        render()
+
+      } else if (hex === '1b5b42') {
+        
+        cursor = (cursor + 1) % results.length
+        
+        render()
+
+      } else if (hex === '0d') {
+        
+        process.stdin.removeListener('data', onData)
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        
+        resolve(results[cursor])
+
+      } else if (hex === '1b' || hex === '03' || str === 'e' || str === 'E') {
+        
+        process.stdin.removeListener('data', onData)
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        
+        resolve(null)
+      }
+    }
+
+    process.stdin.on('data', onData)
+  })
+}
+
+const handleConfirmation = async (message: string): Promise<boolean> => {
+  
+  let cursor = 1
+
+  return new Promise((resolve) => {
+
+    process.stdin.setRawMode(true)
+    process.stdin.resume()
+
+    const render = () => {
+
+      process.stdout.write('\x1b[H\x1b[2J')
+      console.log('\n\n')
+      console.log(`   ${chalk.bold.white(message)}`)
+      console.log()
+
+      const yes = cursor === 0 ? chalk.bold.underline.cyan('YES') : chalk.dim('YES')
+      const no = cursor === 1 ? chalk.bold.underline.cyan('NO') : chalk.dim('NO')
+
+      console.log(`      ${yes}   ${no}`)
+      console.log('\n')
+      console.log(`   ${chalk.dim('Use')} ${chalk.cyan('←/→')} ${chalk.dim('to navigate,')} ${chalk.cyan('Enter')} ${chalk.dim('to confirm')}`)
+    }
+
+    render()
+
+    const onData = (data: Buffer) => {
+
+      const hex = data.toString('hex')
+
+      if (hex === '1b5b44' || hex === '1b5b41') {
+
+        cursor = 0
+        
+        render()
+
+      } else if (hex === '1b5b43' || hex === '1b5b42') {
+        
+        cursor = 1
+        
+        render()
+
+      } else if (hex === '0d') {
+        
+        process.stdin.removeListener('data', onData)
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        
+        resolve(cursor === 0)
+
+      } else if (hex === '1b' || hex === '03') {
+        
+        process.stdin.removeListener('data', onData)
+        process.stdin.setRawMode(false)
+        process.stdin.pause()
+        
+        resolve(false)
+
+      }
+    }
+
+    process.stdin.on('data', onData)
+  })
+}
+
+const openArticle = async (title: string, isLocal: boolean) => {
+
+  const spinner = ora({ text: `   Opening "${title}"...`, color: 'cyan' }).start()
+  
+  try {
+
+    let tokens: Record<string, string> | null = null
+    let finalTitle = title
+
+    if (isLocal) {
+      tokens = jsonIndexer.getArticleJson(title)
+    }
+
+    if (!tokens) {
+
+      spinner.text = '   Downloading...'
+
+      const api = new WikiAPI('en')
+      const article = await api.getArticle(title)
+
+      if (!article) {
+
+        spinner.fail(`   Article "${title}" not found.`)
+        return
+        
+      }
+
+      finalTitle = article.title
+      indexer.saveArticle(article.title, article.content)
+      tokens = jsonFormatter.extractTextTokens(article.content)
+      jsonIndexer.saveArticleJson(article.title, tokens)
+      indexer.deleteArticle(article.title)
+      cacheManager.add(article.title)
+    }
+
+    spinner.stop()
+    await handleReader(finalTitle, tokens!)
+
+  } catch (err: any) {
+    spinner.fail(`   Error opening article: ${err.message}`)
   }
 }
 

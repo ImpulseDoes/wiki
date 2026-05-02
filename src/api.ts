@@ -12,6 +12,7 @@ export interface SearchResult {
 }
 
 export class WikiAPI {
+
   private baseUrl: string = 'https://en.wikipedia.org/w/api.php'
 
   constructor(private lang: string = 'en') {
@@ -23,15 +24,19 @@ export class WikiAPI {
       action: 'query',
       list: 'search',
       srsearch: query,
+      srlimit: '10',
+      srprop: 'snippet|titlesnippet',
       format: 'json',
-      origin: '*'
+      origin: '*',
+      redirects: '1'
     })
 
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
       headers: {
-        'User-Agent': 'WikiCLI/1.0 (https://github.com/user/wiki-cli user@example.com)'
+        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki-cli)'
       }
     })
+
     const data: any = await response.json()
 
     if (!data.query || !data.query.search) {
@@ -40,12 +45,13 @@ export class WikiAPI {
 
     return data.query.search.map((item: any) => ({
       title: item.title,
-      snippet: item.snippet,
+      snippet: item.snippet.replace(/<span class="searchmatch">|<\/span>/g, ''),
       pageid: item.pageid
     }))
   }
 
   async getArticle(title: string): Promise<WikiArticle | null> {
+    
     const params = new URLSearchParams({
       action: 'parse',
       page: title,
@@ -53,12 +59,13 @@ export class WikiAPI {
       format: 'json',
       origin: '*',
       disableeditsection: 'true',
-      mobileformat: 'true'
+      mobileformat: 'true',
+      redirects: '1'
     })
 
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
       headers: {
-        'User-Agent': 'WikiCLI/1.0 (https://github.com/user/wiki-cli user@example.com)'
+        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki-cli)'
       }
     })
     const data: any = await response.json()

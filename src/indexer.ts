@@ -53,6 +53,10 @@ export class WikiIndexer {
     stmt.run(title)
   }
 
+  clearAll() {
+    this.db.prepare('DELETE FROM articles').run()
+  }
+
   async importTitles(lang: string = 'en') {
 
     const url = `https://dumps.wikimedia.org/${lang}wiki/latest/${lang}wiki-latest-all-titles-in-ns0.gz`
