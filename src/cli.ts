@@ -27,9 +27,11 @@ const messages = [
   "What's Googlin'",
   "WIKIpedia",
   "Explorer Spotted!",
-  "Certified Info Spotter",
+  "Certified Research Classic",
   "Deep Dive or Quick Check?",
-  "Checkout Wikipedia!"
+  "Checkout Wikipedia!",
+  "Sources? Always.",
+  "Goliath VS Search Bar"
 ]
 
 const customMessage = messages[Math.floor(Math.random() * messages.length)]
@@ -527,6 +529,34 @@ const startInteractive = async () => {
       console.clear()
       showSplash()
       
+      continue
+    }
+
+    if (query === `${prefix}random`) {
+
+      const spinner = ora({ text: `   Rolling a random article...`, color: 'magenta' }).start()
+
+      try {
+
+        const locale = getSettings().settings.locale
+        const api = new WikiAPI(locale)
+        const randomArticle = await api.getRandomArticle()
+        spinner.stop()
+
+        if (randomArticle) {
+          await openArticle(randomArticle.title, false)
+        } else {
+          console.log(`   ${chalk.red('✖')} Failed to find a random article.`)
+          await pauseThenSplash()
+        }
+      } catch (err: any) {
+        spinner.stop()
+        console.log(`   ${chalk.red('✖')} Error: ${err.message}`)
+        await pauseThenSplash()
+      }
+      
+      console.clear()
+      showSplash()
       continue
     }
 

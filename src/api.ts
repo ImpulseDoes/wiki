@@ -33,7 +33,7 @@ export class WikiAPI {
 
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
       headers: {
-        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki-cli)'
+        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki)'
       }
     })
 
@@ -65,7 +65,7 @@ export class WikiAPI {
 
     const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
       headers: {
-        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki-cli)'
+        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki)'
       }
     })
     const data: any = await response.json()
@@ -79,5 +79,33 @@ export class WikiAPI {
       content: data.parse.text['*'],
       url: `https://${this.lang}.wikipedia.org/wiki/${encodeURIComponent(title)}`
     }
+  }
+
+  async getRandomArticle(): Promise<WikiArticle | null> {
+
+    const params = new URLSearchParams({
+      action: 'query',
+      list: 'random',
+      rnnamespace: '0',
+      rnlimit: '1',
+      format: 'json',
+      origin: '*'
+    })
+
+    const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
+      headers: {
+        'User-Agent': 'WikiCLI/1.0 (https://github.com/ImpulseDoes/wiki)'
+      }
+    })
+
+    const data: any = await response.json()
+
+    if (!data.query || !data.query.random || data.query.random.length === 0) {
+      return null
+    }
+
+    const title = data.query.random[0].title
+
+    return this.getArticle(title)
   }
 }
