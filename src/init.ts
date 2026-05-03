@@ -3,12 +3,13 @@ import path from 'path'
 import https from 'https'
 import { execSync } from 'child_process'
 
-export const STORAGE_DIR = path.join(process.cwd(), 'storage')
-export const SETTINGS_DIR = path.join(process.cwd(), 'settings')
+export const ROOT_DIR = path.join(__dirname, '..')
+export const STORAGE_DIR = path.join(ROOT_DIR, 'storage')
+export const SETTINGS_DIR = path.join(ROOT_DIR, 'settings')
 export const DB_PATH = path.join(STORAGE_DIR, 'wiki.db')
 export const JSON_DB_PATH = path.join(STORAGE_DIR, 'jsonwiki.db')
 export const CACHE_PATH = path.join(STORAGE_DIR, 'cache.json')
-export const VER_PATH = path.join(process.cwd(), 'update', 'ver.json')
+export const VER_PATH = path.join(ROOT_DIR, 'update', 'ver.json')
 export const SETTINGS_PATH = path.join(SETTINGS_DIR, 'set.json')
 
 export function initializeStorage() {
