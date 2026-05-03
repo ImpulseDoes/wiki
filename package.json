@@ -1,6 +1,6 @@
 {
   "name": "@impulsedev/wiki",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Personal Wikipedia CLI",
   "main": "dist/cli.js",
   "preferGlobal": true,
@@ -24,7 +24,8 @@
     "build": "tsc",
     "start": "ts-node src/cli.ts",
     "dev": "ts-node src/cli.ts",
-    "index": "ts-node src/indexer.ts"
+    "index": "ts-node src/indexer.ts",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "cli",
