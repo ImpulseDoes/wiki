@@ -40,6 +40,10 @@ export function initializeStorage() {
         prefix: {
           prefix: ".",
           description: "The prefix to run commands (default: .)"
+        },
+        appearance: {
+          pageSize: 12,
+          description: "Number of lines to display in the reader."
         }
       }
     }
@@ -64,6 +68,10 @@ export interface Settings {
     prefix: {
       prefix: string;
       description: string;
+    },
+    appearance: {
+      pageSize: number;
+      description: string;
     }
   }
 }
@@ -73,19 +81,62 @@ export function saveSettings(settings: Settings) {
 }
 
 export function getSettings(): Settings {
-  if (!fs.existsSync(SETTINGS_PATH)) {
-    initializeStorage()
-  }
-  const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
 
-  if (!settings.settings) {
-    
-    initializeStorage()
-    
-    return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+  const defaultSettings: Settings = {
+    settings: {
+      locale: 'en',
+      discStats: {
+        getDrive: {
+          enabled: true,
+          description: "Show disk space used by local databases."
+        },
+        maxStorageVolumeTakenGB: {
+          enable: false,
+          space: 0,
+          description: "Set a fixed GB limit to compare against."
+        }
+      },
+      prefix: {
+        prefix: ".",
+        description: "The prefix to run commands (default: .)"
+      },
+      appearance: {
+        pageSize: 12,
+        description: "Number of lines to display in the reader."
+      }
+    }
   }
-  
-  return settings
+
+  if (!fs.existsSync(SETTINGS_PATH)) {
+
+    initializeStorage()
+
+    return defaultSettings
+  }
+
+  try {
+
+    const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+    
+    if (!settings.settings) return defaultSettings
+    
+    if (!settings.settings.appearance) {
+      settings.settings.appearance = defaultSettings.settings.appearance
+    }
+
+    if (!settings.settings.prefix) {
+      settings.settings.prefix = defaultSettings.settings.prefix
+    }
+
+    if (!settings.settings.discStats) {
+      settings.settings.discStats = defaultSettings.settings.discStats
+    }
+
+    return settings
+    
+  } catch (e) {
+    return defaultSettings
+  }
 }
 
 export function getDiskInfo(): { total: number; free: number } {

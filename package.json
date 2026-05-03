@@ -1,6 +1,6 @@
 {
   "name": "@impulsedev/wiki",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "description": "Personal Wikipedia CLI",
   "main": "dist/cli.js",
   "preferGlobal": true,

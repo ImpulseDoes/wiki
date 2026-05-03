@@ -249,7 +249,8 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
   const totalWords  = Object.values(tokens).reduce((acc, t) => acc + t.split(/\s+/).length, 0)
 
   let startIndex = 0
-  const pageSize = 12
+  const settings = getSettings()
+  const pageSize = settings.settings.appearance?.pageSize || 12
 
   let findMode      = false
   let findInput     = ''
@@ -669,6 +670,17 @@ const handleConfig = async () => {
       path: 'discStats.maxStorageVolumeTakenGB.space',
       type: 'number',
       description: 'Set a fixed GB limit to compare against.'
+    },
+    {
+      key: 'pageSize',
+      label: 'Page Size',
+      path: 'appearance.pageSize',
+      type: 'number',
+      description: 'Number of lines to display in the reader.',
+      validation: (v) => {
+        const n = parseInt(v);
+        return !isNaN(n) && n >= 5 && n <= 50;
+      }
     }
   ]
   
