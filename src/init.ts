@@ -77,7 +77,7 @@ export interface VerInfo {
 export function getVersionInfo(): VerInfo {
 
   if (!fs.existsSync(VER_PATH)) {
-    return { version: 'v0.1.6', git: 'https://raw.githubusercontent.com/ImpulseDoes/wiki/main/update/ver.json', localVersion: '', locale: 'en' }
+    return { version: '', git: 'https://raw.githubusercontent.com/ImpulseDoes/wiki/main/update/ver.json', localVersion: '', locale: 'en' }
   }
   
   const info = JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
