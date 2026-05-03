@@ -8,7 +8,7 @@ import { WikiAPI } from './api'
 import { WikiIndexer } from './indexer'
 import { JsonFormatter } from './jsonFormatter'
 import { JsonWikiIndexer } from './jsonIndexer'
-import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo, VerInfo, saveVersionInfo } from './init'
+import { CACHE_PATH, initializeStorage, getVersionInfo, checkForUpdates, DB_PATH, JSON_DB_PATH, getSettings, getDiskInfo, VerInfo, saveSettings } from './init'
 import { formatBytes } from './utils'
 
 initializeStorage()
@@ -38,7 +38,7 @@ program
   .name('wiki')
   .description('Beautiful Wikipedia CLI')
   .version('1.0.0')
-  .option('-l, --lang <lang>', 'Language (default: en)', getVersionInfo().locale)
+  .option('-l, --lang <lang>', 'Language (default: en)', getSettings().settings.locale)
 
 const showSplash = () => {
   console.clear()
@@ -166,12 +166,14 @@ const showTopStats = () => {
   let limitBytes = 0
   let limitLabel = ''
 
-  if (stats.getDrive) {
+  if (stats.getDrive.enabled) {
+
     const disk = getDiskInfo()
+    
     limitBytes = disk.total
     limitLabel = 'Disk'
-  } else if (stats.maxStorageVolumeTakenGB > 0) {
-    limitBytes = stats.maxStorageVolumeTakenGB * 1024 * 1024 * 1024
+  } else if (stats.maxStorageVolumeTakenGB.enable && stats.maxStorageVolumeTakenGB.space > 0) {
+    limitBytes = stats.maxStorageVolumeTakenGB.space * 1024 * 1024 * 1024
     limitLabel = 'Limit'
   }
 
@@ -186,6 +188,7 @@ const showTopStats = () => {
   }
 
   const makePct = (bytes: number): string => {
+
     const ofTotal = total > 0 ? (bytes / total) * 100 : 0
     const ofLimit = limitBytes > 0 ? (bytes / limitBytes) * 100 : 0
     
@@ -232,6 +235,7 @@ const showTopStats = () => {
 }
 
 const pauseThenSplash = async (ms = 1800) => {
+
   await new Promise((r) => setTimeout(r, ms))
   showSplash()
 }
@@ -252,17 +256,25 @@ const handleReader = async (title: string, tokens: Record<string, string>): Prom
   let matchCursor   = 0
 
   const computeMatches = (term: string): number[] => {
+
     if (!term) return []
+    
     const lower = term.toLowerCase()
+    
     return keys.reduce((acc, key, i) => {
+      
       if (tokens[key].toLowerCase().includes(lower)) acc.push(i)
-      return acc
+      
+        return acc
     }, [] as number[])
   }
 
   const highlightText = (text: string, term: string): string => {
+
     if (!term) return text
+    
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    
     return text.replace(new RegExp(escaped, 'gi'), (m) => chalk.bgYellow.black.bold(m))
   }
 
@@ -452,23 +464,26 @@ const startInteractive = async () => {
       continue
     }
 
-    if (['exit', 'quit', 'e', '.exit'].includes(query.toLowerCase())) {
+    const currentSettings = getSettings()
+    const prefix = currentSettings.settings.prefix?.prefix || '.'
+
+    if (['exit', 'quit', 'e', `${prefix}exit`].includes(query.toLowerCase())) {
       doExit()
     }
 
-    if (query === '.top') {
+    if (query === `${prefix}top`) {
       showTopStats()
       continue
     }
 
-    if (['.clear', '.c'].includes(query.toLowerCase())) {
+    if ([`${prefix}clear`, `${prefix}c`].includes(query.toLowerCase())) {
 
       console.clear()
       showSplash()
       continue
     }
 
-    if (query === '.cache') {
+    if (query === `${prefix}cache`) {
 
       const dbSize     = fs.existsSync(DB_PATH)     ? fs.statSync(DB_PATH).size     : 0
       const jsonDbSize = fs.existsSync(JSON_DB_PATH) ? fs.statSync(JSON_DB_PATH).size : 0
@@ -505,7 +520,7 @@ const startInteractive = async () => {
       continue
     }
 
-    if (query === '.config') {
+    if (query === `${prefix}config`) {
 
       await handleConfig()
       
@@ -519,7 +534,7 @@ const startInteractive = async () => {
 
     try {
 
-      const locale = getVersionInfo().locale
+      const locale = getSettings().settings.locale
       const localMatches = cacheManager.search(query)
       const api = new WikiAPI(locale)
       const remoteMatches = await api.search(query)
@@ -573,10 +588,79 @@ const startInteractive = async () => {
 const handleConfig = async () => {
 
   let info = getVersionInfo()
-  const keys: (keyof VerInfo)[] = ['version', 'git', 'localVersion', 'locale']
+  let settingsData = getSettings()
+  
+  const verKeys: (keyof VerInfo)[] = ['version', 'git', 'localVersion']
+  
+  type SettingConfig = {
+    key: string;
+    label: string;
+    path: string;
+    type: 'string' | 'boolean' | 'number';
+    description: string;
+    validation?: (val: string) => boolean;
+  }
+
+  const settingConfigs: SettingConfig[] = [
+
+    {
+      key: 'prefix',
+      label: 'Command Prefix',
+      path: 'prefix.prefix',
+      type: 'string',
+      description: settingsData.settings.prefix?.description || 'The prefix to run commands (default: .)',
+      validation: (v) => v.length == 1
+    },
+    {
+      key: 'locale',
+      label: 'Locale',
+      path: 'locale',
+      type: 'string',
+      description: 'Language for Wikipedia search and articles (default: en).',
+      validation: (v) => v.length === 2
+    },
+    {
+      key: 'getDrive',
+      label: 'Get Drive',
+      path: 'discStats.getDrive.enabled',
+      type: 'boolean',
+      description: settingsData.settings.discStats.getDrive.description
+    },
+    {
+      key: 'storageLimitEnabled',
+      label: 'Storage Limit Enabled',
+      path: 'discStats.maxStorageVolumeTakenGB.enable',
+      type: 'boolean',
+      description: settingsData.settings.discStats.maxStorageVolumeTakenGB.description
+    },
+    {
+      key: 'storageLimitSpace',
+      label: 'Storage Limit Space (GB)',
+      path: 'discStats.maxStorageVolumeTakenGB.space',
+      type: 'number',
+      description: 'Set a fixed GB limit to compare against.'
+    }
+  ]
+  
+  const allKeys = [...verKeys, ...settingConfigs.map(c => c.key)]
+  
   let cursor = 0
   let isEditing = false
   let editValue = ''
+
+  const getValueByPath = (obj: any, path: string) => {
+
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj)
+  }
+
+  const setValueByPath = (obj: any, path: string, value: any) => {
+    
+    const parts = path.split('.')
+    const last = parts.pop()!
+    const target = parts.reduce((acc, part) => acc && acc[part], obj)
+
+    if (target) target[last] = value
+  }
 
   return new Promise<void>((resolve) => {
 
@@ -587,30 +671,51 @@ const handleConfig = async () => {
 
       process.stdout.write('\x1b[H\x1b[2J')
       console.log('\n')
-      console.log(`   ${chalk.bold.white('Configuration')} (${chalk.dim(getVersionInfo().version)})`)
+      console.log(`   ${chalk.bold.white('Configuration')} (${chalk.dim(info.version)})`)
       console.log(chalk.dim('   ─────────────────────────────────────────────────────────────────────────────\n'))
 
-      keys.forEach((key, i) => {
+      allKeys.forEach((key, i) => {
 
         const isSelected = i === cursor
-        const isLocked = ['version', 'git', 'localVersion'].includes(key as string)
+        const verKey = verKeys[i]
+        const isLocked = !!verKey
         const icon = isLocked ? '🔒︎  ' : '  '
         const prefix = isSelected ? chalk.cyan('  ▸ ') : '    '
-        const label = isSelected ? chalk.bold.cyan(key) : chalk.white(key)
         
+        let label = ''
         let valueDisplay = ''
-        if (isSelected && isEditing) {
-          valueDisplay = chalk.yellow(editValue) + chalk.cyan('█')
+        
+        if (isLocked) {
+          
+          label = isSelected ? chalk.bold.cyan(verKey) : chalk.white(verKey)
+          valueDisplay = chalk.dim((info as any)[verKey])
+
         } else {
-          valueDisplay = chalk.dim((info as any)[key])
+          
+          const config = settingConfigs[i - verKeys.length]
+          
+          label = isSelected ? chalk.bold.cyan(config.label) : chalk.white(config.label)
+          
+          if (isSelected && isEditing) {
+
+            valueDisplay = chalk.yellow(editValue) + chalk.cyan('█')
+          } else {
+            
+            const val = getValueByPath(settingsData.settings, config.path)
+            
+            if (config.type === 'boolean') {
+              valueDisplay = val ? chalk.green('true') : chalk.red('false')
+            } else {
+              valueDisplay = chalk.dim(val?.toString() || '')
+            }
+          }
         }
         
-        console.log(`${prefix}${icon}${label}: ${valueDisplay}`)
-
+        console.log(`${prefix}${icon}${label.padEnd(25)}: ${valueDisplay}`)
       })
 
       console.log('\n')
-      const isBack = cursor === keys.length
+      const isBack = cursor === allKeys.length
       const backPrefix = isBack ? chalk.cyan('  ▸ ') : '    '
       console.log(`${backPrefix}${isBack ? chalk.bold.cyan('BACK') : chalk.white('BACK')}`)
 
@@ -620,9 +725,16 @@ const handleConfig = async () => {
       if (isEditing) {
         console.log(`   ${chalk.dim('Editing...')} ${chalk.cyan('Enter')} ${chalk.dim('to save,')} ${chalk.cyan('Esc')} ${chalk.dim('to cancel')}`)
       } else {
-        console.log(`   ${chalk.dim('Use')} ${chalk.cyan('↑/↓')} ${chalk.dim('to navigate,')} ${chalk.cyan('Enter')} ${chalk.dim('to edit')}`)
-      }
 
+        if (cursor < allKeys.length && cursor >= verKeys.length) {
+          
+          const config = settingConfigs[cursor - verKeys.length]
+
+          console.log(`   ${chalk.italic.dim(config.description)}`)
+          console.log()
+        }
+        console.log(`   ${chalk.dim('Use')} ${chalk.cyan('↑/↓')} ${chalk.dim('to navigate,')} ${chalk.cyan('Enter')} ${chalk.dim('to edit/toggle')}`)
+      }
     }
 
     render()
@@ -634,10 +746,19 @@ const handleConfig = async () => {
 
       if (isEditing) {
 
+        const config = settingConfigs[cursor - verKeys.length]
+
         if (hex === '0d') {
 
-          (info as any)[keys[cursor]] = editValue.trim() || (info as any)[keys[cursor]]
-          saveVersionInfo(info)
+          if (config.validation && !config.validation(editValue)) {
+            return
+          }
+
+          let finalValue: any = editValue.trim()
+          if (config.type === 'number') finalValue = parseFloat(finalValue) || 0
+          
+          setValueByPath(settingsData.settings, config.path, finalValue)
+          saveSettings(settingsData)
           isEditing = false
           render()
 
@@ -651,52 +772,57 @@ const handleConfig = async () => {
           editValue = editValue.slice(0, -1)
           render()
 
-        } else if (str.length === 1 && /[a-zA-Z0-9_\-\.]/.test(str)) {
+        } else if (str.length === 1) {
 
-          editValue += str
-          render()
-
+          if (config.type === 'number' && !/[0-9.]/.test(str)) return
+          if (config.key === 'locale' && editValue.length >= 2) return
+          
+          if (!/[\x00-\x1F\x7F]/.test(str)) {
+            editValue += str
+            render()
+          }
         }
 
         return
-
       }
 
       if (hex === '1b5b41') {
 
-        cursor = (cursor - 1 + keys.length + 1) % (keys.length + 1)
+        cursor = (cursor - 1 + allKeys.length + 1) % (allKeys.length + 1)
         render()
 
       } else if (hex === '1b5b42') {
 
-        cursor = (cursor + 1) % (keys.length + 1)
+        cursor = (cursor + 1) % (allKeys.length + 1)
         render()
 
       } else if (hex === '0d') {
 
-        if (cursor === keys.length) {
+        if (cursor === allKeys.length) {
 
           process.stdin.removeListener('data', onData)
           process.stdin.setRawMode(false)
           process.stdin.pause()
           resolve()
 
+        } else if (cursor < verKeys.length) {
+
+          console.log(`\n   ${chalk.yellow('🔒︎  This field is read-only.')}`)
+          setTimeout(render, 1000)
+
         } else {
 
-          const key = keys[cursor]
-          const isLocked = ['version', 'git', 'localVersion'].includes(key as string)
+          const config = settingConfigs[cursor - verKeys.length]
           
-          if (isLocked) {
-
-            console.log(`\n   ${chalk.yellow('🔒︎  This field is read-only.')}`)
-            setTimeout(render, 1000)
-
-          } else {
-
-            isEditing = true
-            editValue = (info as any)[key]
+          if (config.type === 'boolean') {
+            const current = getValueByPath(settingsData.settings, config.path)
+            setValueByPath(settingsData.settings, config.path, !current)
+            saveSettings(settingsData)
             render()
-
+          } else {
+            isEditing = true
+            editValue = getValueByPath(settingsData.settings, config.path)?.toString() || ''
+            render()
           }
         }
 
@@ -876,7 +1002,7 @@ const openArticle = async (title: string, isLocal: boolean) => {
 
       spinner.text = '   Downloading...'
 
-      const locale = getVersionInfo().locale
+      const locale = getSettings().settings.locale
       const api = new WikiAPI(locale)
       const article = await api.getArticle(title)
 

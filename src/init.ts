@@ -22,11 +22,23 @@ export function initializeStorage() {
   }
 
   if (!fs.existsSync(SETTINGS_PATH)) {
-    const defaultSettings = {
+    const defaultSettings: Settings = {
       settings: {
+        locale: 'en',
         discStats: {
-          getDrive: true,
-          maxStorageVolumeTakenGB: 0
+          getDrive: {
+            enabled: true,
+            description: "Show disk space used by local databases."
+          },
+          maxStorageVolumeTakenGB: {
+            enable: false,
+            space: 0,
+            description: "Set a fixed GB limit to compare against."
+          }
+        },
+        prefix: {
+          prefix: ".",
+          description: "The prefix to run commands (default: .)"
         }
       }
     }
@@ -36,18 +48,43 @@ export function initializeStorage() {
 
 export interface Settings {
   settings: {
+    locale: string;
     discStats: {
-      getDrive: boolean;
-      maxStorageVolumeTakenGB: number;
+      getDrive: {
+        enabled: boolean;
+        description: string;
+      };
+      maxStorageVolumeTakenGB: {
+        enable: boolean;
+        space: number;
+        description: string;
+      };
+    };
+    prefix: {
+      prefix: string;
+      description: string;
     }
   }
+}
+
+export function saveSettings(settings: Settings) {
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 4))
 }
 
 export function getSettings(): Settings {
   if (!fs.existsSync(SETTINGS_PATH)) {
     initializeStorage()
   }
-  return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+  const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+
+  if (!settings.settings) {
+    
+    initializeStorage()
+    
+    return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+  }
+  
+  return settings
 }
 
 export function getDiskInfo(): { total: number; free: number } {
@@ -71,21 +108,15 @@ export interface VerInfo {
   version: string;
   git: string;
   localVersion: string;
-  locale: string;
 }
 
 export function getVersionInfo(): VerInfo {
 
   if (!fs.existsSync(VER_PATH)) {
-    return { version: '', git: 'https://raw.githubusercontent.com/ImpulseDoes/wiki/main/update/ver.json', localVersion: '', locale: 'en' }
+    return { version: '', git: 'https://raw.githubusercontent.com/ImpulseDoes/wiki/main/update/ver.json', localVersion: '' }
   }
   
-  const info = JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
-  
-  return {
-    ...info,
-    locale: info.locale || 'en'
-  }
+  return JSON.parse(fs.readFileSync(VER_PATH, 'utf-8'))
 }
 
 export function saveVersionInfo(info: VerInfo) {
